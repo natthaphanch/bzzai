@@ -28,14 +28,27 @@ zai-on() {
   jq --arg token "$ZAI_AUTH_TOKEN" \
      --arg url "$ZAI_BASE_URL" \
      --arg timeout "$ZAI_TIMEOUT_MS" \
-     '.env.ANTHROPIC_AUTH_TOKEN = $token | .env.ANTHROPIC_BASE_URL = $url | .env.API_TIMEOUT_MS = $timeout' \
+     --arg haiku "${ZAI_HAIKU_MODEL:-glm-4.5-air}" \
+     --arg sonnet "${ZAI_SONNET_MODEL:-glm-5-turbo}" \
+     --arg opus "${ZAI_OPUS_MODEL:-glm-5.1}" \
+     '.env.ANTHROPIC_AUTH_TOKEN = $token
+      | .env.ANTHROPIC_BASE_URL = $url
+      | .env.API_TIMEOUT_MS = $timeout
+      | .env.ANTHROPIC_DEFAULT_HAIKU_MODEL = $haiku
+      | .env.ANTHROPIC_DEFAULT_SONNET_MODEL = $sonnet
+      | .env.ANTHROPIC_DEFAULT_OPUS_MODEL = $opus' \
      "$CLAUDE_SETTINGS" > "$tmp_file" && mv "$tmp_file" "$CLAUDE_SETTINGS"
 }
 
 # Disable Zai
 zai-off() {
   local tmp_file=$(mktemp)
-  jq 'del(.env.ANTHROPIC_AUTH_TOKEN) | del(.env.ANTHROPIC_BASE_URL) | del(.env.API_TIMEOUT_MS)' \
+  jq 'del(.env.ANTHROPIC_AUTH_TOKEN)
+      | del(.env.ANTHROPIC_BASE_URL)
+      | del(.env.API_TIMEOUT_MS)
+      | .env.ANTHROPIC_DEFAULT_HAIKU_MODEL = ""
+      | .env.ANTHROPIC_DEFAULT_SONNET_MODEL = ""
+      | .env.ANTHROPIC_DEFAULT_OPUS_MODEL = ""' \
      "$CLAUDE_SETTINGS" > "$tmp_file" && mv "$tmp_file" "$CLAUDE_SETTINGS"
 }
 
@@ -47,12 +60,18 @@ edit-config() {
   gum style --foreground 212 "  Token:    ${ZAI_AUTH_TOKEN:0:20}..."
   gum style --foreground 212 "  Base URL: $ZAI_BASE_URL"
   gum style --foreground 212 "  Timeout:  $ZAI_TIMEOUT_MS ms"
+  gum style --foreground 212 "  Haiku:    ${ZAI_HAIKU_MODEL:-glm-4.5-air}"
+  gum style --foreground 212 "  Sonnet:   ${ZAI_SONNET_MODEL:-glm-5-turbo}"
+  gum style --foreground 212 "  Opus:     ${ZAI_OPUS_MODEL:-glm-5.1}"
   echo ""
 
   # Input new values
   local new_token=$(gum input --value "$ZAI_AUTH_TOKEN" --placeholder "API Auth Token" --width 50 --header "Token")
   local new_url=$(gum input --value "$ZAI_BASE_URL" --placeholder "Base URL" --width 50 --header "Base URL")
   local new_timeout=$(gum input --value "$ZAI_TIMEOUT_MS" --placeholder "Timeout (ms)" --width 20 --header "Timeout")
+  local new_haiku=$(gum input --value "${ZAI_HAIKU_MODEL:-glm-4.5-air}" --placeholder "Haiku model" --width 30 --header "Haiku Model")
+  local new_sonnet=$(gum input --value "${ZAI_SONNET_MODEL:-glm-5-turbo}" --placeholder "Sonnet model" --width 30 --header "Sonnet Model")
+  local new_opus=$(gum input --value "${ZAI_OPUS_MODEL:-glm-5.1}" --placeholder "Opus model" --width 30 --header "Opus Model")
 
   # Confirm
   echo ""
@@ -66,6 +85,9 @@ edit-config() {
 ZAI_AUTH_TOKEN="$new_token"
 ZAI_BASE_URL="$new_url"
 ZAI_TIMEOUT_MS="$new_timeout"
+ZAI_HAIKU_MODEL="$new_haiku"
+ZAI_SONNET_MODEL="$new_sonnet"
+ZAI_OPUS_MODEL="$new_opus"
 
 # Debug mode (1=on, 0=off)
 ZAI_DEBUG="\${ZAI_DEBUG:-0}"

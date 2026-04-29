@@ -40,6 +40,9 @@ if (!fs.existsSync(ENV_FILE)) {
 ZAI_AUTH_TOKEN="your-api-key-here"
 ZAI_BASE_URL="https://api.z.ai/api/anthropic"
 ZAI_TIMEOUT_MS="3000000"
+ZAI_HAIKU_MODEL="glm-4.5-air"
+ZAI_SONNET_MODEL="glm-5-turbo"
+ZAI_OPUS_MODEL="glm-5.1"
 ZAI_DEBUG="0"
 `;
   fs.writeFileSync(ENV_FILE, example);
@@ -55,6 +58,10 @@ function loadEnv() {
       env[match[1]] = match[2];
     }
   });
+  // Defaults for users with older env.sh that lacks model vars
+  if (!env.ZAI_HAIKU_MODEL) env.ZAI_HAIKU_MODEL = 'glm-4.5-air';
+  if (!env.ZAI_SONNET_MODEL) env.ZAI_SONNET_MODEL = 'glm-5-turbo';
+  if (!env.ZAI_OPUS_MODEL) env.ZAI_OPUS_MODEL = 'glm-5.1';
   return env;
 }
 
@@ -66,6 +73,9 @@ function saveEnv(env) {
 ZAI_AUTH_TOKEN="${env.ZAI_AUTH_TOKEN}"
 ZAI_BASE_URL="${env.ZAI_BASE_URL}"
 ZAI_TIMEOUT_MS="${env.ZAI_TIMEOUT_MS}"
+ZAI_HAIKU_MODEL="${env.ZAI_HAIKU_MODEL}"
+ZAI_SONNET_MODEL="${env.ZAI_SONNET_MODEL}"
+ZAI_OPUS_MODEL="${env.ZAI_OPUS_MODEL}"
 ZAI_DEBUG="0"
 `;
   fs.writeFileSync(ENV_FILE, content);
@@ -104,6 +114,9 @@ function enableZai(env) {
   settings.env.ANTHROPIC_AUTH_TOKEN = env.ZAI_AUTH_TOKEN;
   settings.env.ANTHROPIC_BASE_URL = env.ZAI_BASE_URL;
   settings.env.API_TIMEOUT_MS = env.ZAI_TIMEOUT_MS;
+  settings.env.ANTHROPIC_DEFAULT_HAIKU_MODEL = env.ZAI_HAIKU_MODEL;
+  settings.env.ANTHROPIC_DEFAULT_SONNET_MODEL = env.ZAI_SONNET_MODEL;
+  settings.env.ANTHROPIC_DEFAULT_OPUS_MODEL = env.ZAI_OPUS_MODEL;
   fs.writeFileSync(CLAUDE_SETTINGS, JSON.stringify(settings, null, 2));
   return true;
 }
@@ -121,6 +134,9 @@ function disableZai() {
   settings.env.ANTHROPIC_AUTH_TOKEN = "";
   settings.env.ANTHROPIC_BASE_URL = "";
   settings.env.API_TIMEOUT_MS = "";
+  settings.env.ANTHROPIC_DEFAULT_HAIKU_MODEL = "";
+  settings.env.ANTHROPIC_DEFAULT_SONNET_MODEL = "";
+  settings.env.ANTHROPIC_DEFAULT_OPUS_MODEL = "";
   fs.writeFileSync(CLAUDE_SETTINGS, JSON.stringify(settings, null, 2));
   return true;
 }
@@ -287,6 +303,9 @@ function editConfig(env) {
     { label: 'Edit Token', desc: `${'****' + env.ZAI_AUTH_TOKEN.slice(-4)}` },
     { label: 'Edit URL', desc: env.ZAI_BASE_URL },
     { label: 'Edit Timeout', desc: `${env.ZAI_TIMEOUT_MS}ms` },
+    { label: 'Edit Haiku Model', desc: env.ZAI_HAIKU_MODEL },
+    { label: 'Edit Sonnet Model', desc: env.ZAI_SONNET_MODEL },
+    { label: 'Edit Opus Model', desc: env.ZAI_OPUS_MODEL },
     { label: 'Save', desc: 'Save changes' },
     { label: 'Back', desc: 'Return to main menu' },
     { label: 'Exit', desc: 'Quit program' },
@@ -307,6 +326,9 @@ function editConfig(env) {
     options[0].desc = `${'****' + env.ZAI_AUTH_TOKEN.slice(-4)}`;
     options[1].desc = env.ZAI_BASE_URL;
     options[2].desc = `${env.ZAI_TIMEOUT_MS}ms`;
+    options[3].desc = env.ZAI_HAIKU_MODEL;
+    options[4].desc = env.ZAI_SONNET_MODEL;
+    options[5].desc = env.ZAI_OPUS_MODEL;
 
     options.forEach((opt, i) => {
       const prefix = i === selectedIndex ? `${colors.cyan}  > ` : '    ';
@@ -368,18 +390,36 @@ function editConfig(env) {
           restartMenu();
         });
         break;
-      case 3: // Save
+      case 3: // Edit Haiku Model
+        promptInput('Edit Haiku Model', env.ZAI_HAIKU_MODEL, (val) => {
+          if (val) env.ZAI_HAIKU_MODEL = val;
+          restartMenu();
+        });
+        break;
+      case 4: // Edit Sonnet Model
+        promptInput('Edit Sonnet Model', env.ZAI_SONNET_MODEL, (val) => {
+          if (val) env.ZAI_SONNET_MODEL = val;
+          restartMenu();
+        });
+        break;
+      case 5: // Edit Opus Model
+        promptInput('Edit Opus Model', env.ZAI_OPUS_MODEL, (val) => {
+          if (val) env.ZAI_OPUS_MODEL = val;
+          restartMenu();
+        });
+        break;
+      case 6: // Save
         active = false;
         process.stdin.removeListener('keypress', onKeypress);
         saveEnv(env);
         showMessage(`${colors.green}✓ Config saved${colors.reset}`, showMenu);
         break;
-      case 4: // Back
+      case 7: // Back
         active = false;
         process.stdin.removeListener('keypress', onKeypress);
         showMenu();
         break;
-      case 5: // Exit
+      case 8: // Exit
         active = false;
         if (process.stdin.isTTY) {
           process.stdin.setRawMode(false);

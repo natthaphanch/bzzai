@@ -26,7 +26,15 @@ zai-on() {
   jq --arg token "$ZAI_AUTH_TOKEN" \
      --arg url "$ZAI_BASE_URL" \
      --arg timeout "$ZAI_TIMEOUT_MS" \
-     '.env.ANTHROPIC_AUTH_TOKEN = $token | .env.ANTHROPIC_BASE_URL = $url | .env.API_TIMEOUT_MS = $timeout' \
+     --arg haiku "${ZAI_HAIKU_MODEL:-glm-4.5-air}" \
+     --arg sonnet "${ZAI_SONNET_MODEL:-glm-5-turbo}" \
+     --arg opus "${ZAI_OPUS_MODEL:-glm-5.1}" \
+     '.env.ANTHROPIC_AUTH_TOKEN = $token
+      | .env.ANTHROPIC_BASE_URL = $url
+      | .env.API_TIMEOUT_MS = $timeout
+      | .env.ANTHROPIC_DEFAULT_HAIKU_MODEL = $haiku
+      | .env.ANTHROPIC_DEFAULT_SONNET_MODEL = $sonnet
+      | .env.ANTHROPIC_DEFAULT_OPUS_MODEL = $opus' \
      "$CLAUDE_SETTINGS" > "$tmp_file" && mv "$tmp_file" "$CLAUDE_SETTINGS"
 
   _zai_log "zai-on: Done"
@@ -39,7 +47,12 @@ zai-off() {
 
   # Use jq to set env vars to empty (not delete) to force Claude to reload
   local tmp_file=$(mktemp)
-  jq '.env.ANTHROPIC_AUTH_TOKEN = "" | .env.ANTHROPIC_BASE_URL = "" | del(.env.API_TIMEOUT_MS)' \
+  jq '.env.ANTHROPIC_AUTH_TOKEN = ""
+      | .env.ANTHROPIC_BASE_URL = ""
+      | del(.env.API_TIMEOUT_MS)
+      | .env.ANTHROPIC_DEFAULT_HAIKU_MODEL = ""
+      | .env.ANTHROPIC_DEFAULT_SONNET_MODEL = ""
+      | .env.ANTHROPIC_DEFAULT_OPUS_MODEL = ""' \
      "$CLAUDE_SETTINGS" > "$tmp_file" && mv "$tmp_file" "$CLAUDE_SETTINGS"
 
   _zai_log "zai-off: Done"

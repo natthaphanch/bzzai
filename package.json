@@ -1,6 +1,6 @@
 {
   "name": "bzzai-helper",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "Toggle Zai API for Claude Code via TUI Menu",
   "main": "index.js",
   "bin": {
