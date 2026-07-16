@@ -11,45 +11,19 @@ if [[ -f "$ZAI_ENV_TEMPLATE" ]]; then
   source "$ZAI_ENV_TEMPLATE"
 fi
 
-# Get current status
+# zai-on / zai-off / zai-status come from the shared wrappers, which delegate to
+# index.js — one implementation for the settings.json logic (no duplicated jq).
+source "$ZAI_DIR/lib/toggle.sh"
+
+# Get current status (enabled decision delegated to node; URL just read for display)
 get_status() {
-  if jq -e '.env.ANTHROPIC_AUTH_TOKEN' "$CLAUDE_SETTINGS" > /dev/null 2>&1; then
-    local url=$(jq -r '.env.ANTHROPIC_BASE_URL // "not set"' "$CLAUDE_SETTINGS")
+  if zai-status | grep -q '\[ON\]'; then
+    local url=$(jq -r '.env.ANTHROPIC_BASE_URL // "not set"' "$CLAUDE_SETTINGS" 2>/dev/null)
     echo "🟢 Zai: ENABLED"
     echo "   Base URL: $url"
   else
     echo "⚪ Zai: DISABLED (default Anthropic)"
   fi
-}
-
-# Enable Zai
-zai-on() {
-  local tmp_file=$(mktemp)
-  jq --arg token "$ZAI_AUTH_TOKEN" \
-     --arg url "$ZAI_BASE_URL" \
-     --arg timeout "$ZAI_TIMEOUT_MS" \
-     --arg haiku "${ZAI_HAIKU_MODEL:-glm-4.5-air}" \
-     --arg sonnet "${ZAI_SONNET_MODEL:-glm-5-turbo}" \
-     --arg opus "${ZAI_OPUS_MODEL:-glm-5.1}" \
-     '.env.ANTHROPIC_AUTH_TOKEN = $token
-      | .env.ANTHROPIC_BASE_URL = $url
-      | .env.API_TIMEOUT_MS = $timeout
-      | .env.ANTHROPIC_DEFAULT_HAIKU_MODEL = $haiku
-      | .env.ANTHROPIC_DEFAULT_SONNET_MODEL = $sonnet
-      | .env.ANTHROPIC_DEFAULT_OPUS_MODEL = $opus' \
-     "$CLAUDE_SETTINGS" > "$tmp_file" && mv "$tmp_file" "$CLAUDE_SETTINGS"
-}
-
-# Disable Zai
-zai-off() {
-  local tmp_file=$(mktemp)
-  jq 'del(.env.ANTHROPIC_AUTH_TOKEN)
-      | del(.env.ANTHROPIC_BASE_URL)
-      | del(.env.API_TIMEOUT_MS)
-      | .env.ANTHROPIC_DEFAULT_HAIKU_MODEL = ""
-      | .env.ANTHROPIC_DEFAULT_SONNET_MODEL = ""
-      | .env.ANTHROPIC_DEFAULT_OPUS_MODEL = ""' \
-     "$CLAUDE_SETTINGS" > "$tmp_file" && mv "$tmp_file" "$CLAUDE_SETTINGS"
 }
 
 # Edit config via TUI input
@@ -61,8 +35,8 @@ edit-config() {
   gum style --foreground 212 "  Base URL: $ZAI_BASE_URL"
   gum style --foreground 212 "  Timeout:  $ZAI_TIMEOUT_MS ms"
   gum style --foreground 212 "  Haiku:    ${ZAI_HAIKU_MODEL:-glm-4.5-air}"
-  gum style --foreground 212 "  Sonnet:   ${ZAI_SONNET_MODEL:-glm-5-turbo}"
-  gum style --foreground 212 "  Opus:     ${ZAI_OPUS_MODEL:-glm-5.1}"
+  gum style --foreground 212 "  Sonnet:   ${ZAI_SONNET_MODEL:-glm-5.2[1m]}"
+  gum style --foreground 212 "  Opus:     ${ZAI_OPUS_MODEL:-glm-5.2[1m]}"
   echo ""
 
   # Input new values
@@ -70,8 +44,8 @@ edit-config() {
   local new_url=$(gum input --value "$ZAI_BASE_URL" --placeholder "Base URL" --width 50 --header "Base URL")
   local new_timeout=$(gum input --value "$ZAI_TIMEOUT_MS" --placeholder "Timeout (ms)" --width 20 --header "Timeout")
   local new_haiku=$(gum input --value "${ZAI_HAIKU_MODEL:-glm-4.5-air}" --placeholder "Haiku model" --width 30 --header "Haiku Model")
-  local new_sonnet=$(gum input --value "${ZAI_SONNET_MODEL:-glm-5-turbo}" --placeholder "Sonnet model" --width 30 --header "Sonnet Model")
-  local new_opus=$(gum input --value "${ZAI_OPUS_MODEL:-glm-5.1}" --placeholder "Opus model" --width 30 --header "Opus Model")
+  local new_sonnet=$(gum input --value "${ZAI_SONNET_MODEL:-glm-5.2[1m]}" --placeholder "Sonnet model" --width 30 --header "Sonnet Model")
+  local new_opus=$(gum input --value "${ZAI_OPUS_MODEL:-glm-5.2[1m]}" --placeholder "Opus model" --width 30 --header "Opus Model")
 
   # Confirm
   echo ""

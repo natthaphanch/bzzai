@@ -7,6 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { applyEnable, applyDisable, readStatus } = require('./lib/settings');
 
 // ANSI colors for terminal
 const colors = {
@@ -25,7 +26,7 @@ const colors = {
 // Config paths
 const ZAI_ROOT = process.env.ZAI_ROOT || path.join(os.homedir(), '.zai');
 const ENV_FILE = path.join(ZAI_ROOT, 'env.sh');
-const CLAUDE_SETTINGS = path.join(os.homedir(), '.claude', 'settings.json');
+const CLAUDE_SETTINGS = process.env.CLAUDE_SETTINGS || path.join(os.homedir(), '.claude', 'settings.json');
 
 // Ensure .zai directory exists
 if (!fs.existsSync(ZAI_ROOT)) {
@@ -41,8 +42,8 @@ ZAI_AUTH_TOKEN="your-api-key-here"
 ZAI_BASE_URL="https://api.z.ai/api/anthropic"
 ZAI_TIMEOUT_MS="3000000"
 ZAI_HAIKU_MODEL="glm-4.5-air"
-ZAI_SONNET_MODEL="glm-5-turbo"
-ZAI_OPUS_MODEL="glm-5.1"
+ZAI_SONNET_MODEL="glm-5.2[1m]"
+ZAI_OPUS_MODEL="glm-5.2[1m]"
 ZAI_DEBUG="0"
 `;
   fs.writeFileSync(ENV_FILE, example);
@@ -60,8 +61,8 @@ function loadEnv() {
   });
   // Defaults for users with older env.sh that lacks model vars
   if (!env.ZAI_HAIKU_MODEL) env.ZAI_HAIKU_MODEL = 'glm-4.5-air';
-  if (!env.ZAI_SONNET_MODEL) env.ZAI_SONNET_MODEL = 'glm-5-turbo';
-  if (!env.ZAI_OPUS_MODEL) env.ZAI_OPUS_MODEL = 'glm-5.1';
+  if (!env.ZAI_SONNET_MODEL) env.ZAI_SONNET_MODEL = 'glm-5.2[1m]';
+  if (!env.ZAI_OPUS_MODEL) env.ZAI_OPUS_MODEL = 'glm-5.2[1m]';
   return env;
 }
 
@@ -87,15 +88,8 @@ function getStatus() {
     return { enabled: false };
   }
   try {
-    const content = fs.readFileSync(CLAUDE_SETTINGS, 'utf8');
-    const settings = JSON.parse(content);
-    const hasToken = settings.env?.ANTHROPIC_AUTH_TOKEN;
-    if (hasToken) {
-      return {
-        enabled: true,
-        url: settings.env.ANTHROPIC_BASE_URL || 'unknown',
-      };
-    }
+    const settings = JSON.parse(fs.readFileSync(CLAUDE_SETTINGS, 'utf8'));
+    return readStatus(settings);
   } catch (e) {
     // Ignore parse errors
   }
@@ -108,16 +102,16 @@ function enableZai(env) {
     console.log(`${colors.red}Error: Claude settings not found at ${CLAUDE_SETTINGS}${colors.reset}`);
     return false;
   }
-  const content = fs.readFileSync(CLAUDE_SETTINGS, 'utf8');
-  const settings = JSON.parse(content);
-  settings.env = settings.env || {};
-  settings.env.ANTHROPIC_AUTH_TOKEN = env.ZAI_AUTH_TOKEN;
-  settings.env.ANTHROPIC_BASE_URL = env.ZAI_BASE_URL;
-  settings.env.API_TIMEOUT_MS = env.ZAI_TIMEOUT_MS;
-  settings.env.ANTHROPIC_DEFAULT_HAIKU_MODEL = env.ZAI_HAIKU_MODEL;
-  settings.env.ANTHROPIC_DEFAULT_SONNET_MODEL = env.ZAI_SONNET_MODEL;
-  settings.env.ANTHROPIC_DEFAULT_OPUS_MODEL = env.ZAI_OPUS_MODEL;
-  fs.writeFileSync(CLAUDE_SETTINGS, JSON.stringify(settings, null, 2));
+  const settings = JSON.parse(fs.readFileSync(CLAUDE_SETTINGS, 'utf8'));
+  const next = applyEnable(settings, {
+    authToken: env.ZAI_AUTH_TOKEN,
+    baseUrl: env.ZAI_BASE_URL,
+    timeoutMs: env.ZAI_TIMEOUT_MS,
+    haikuModel: env.ZAI_HAIKU_MODEL,
+    sonnetModel: env.ZAI_SONNET_MODEL,
+    opusModel: env.ZAI_OPUS_MODEL,
+  });
+  fs.writeFileSync(CLAUDE_SETTINGS, JSON.stringify(next, null, 2));
   return true;
 }
 
@@ -128,16 +122,8 @@ function disableZai() {
     return false;
   }
   console.log(`${colors.yellow}Tip: Run /compact or /clear in Claude Code before switching to avoid signature errors${colors.reset}`);
-  const content = fs.readFileSync(CLAUDE_SETTINGS, 'utf8');
-  const settings = JSON.parse(content);
-  settings.env = settings.env || {};
-  settings.env.ANTHROPIC_AUTH_TOKEN = "";
-  settings.env.ANTHROPIC_BASE_URL = "";
-  settings.env.API_TIMEOUT_MS = "";
-  settings.env.ANTHROPIC_DEFAULT_HAIKU_MODEL = "";
-  settings.env.ANTHROPIC_DEFAULT_SONNET_MODEL = "";
-  settings.env.ANTHROPIC_DEFAULT_OPUS_MODEL = "";
-  fs.writeFileSync(CLAUDE_SETTINGS, JSON.stringify(settings, null, 2));
+  const settings = JSON.parse(fs.readFileSync(CLAUDE_SETTINGS, 'utf8'));
+  fs.writeFileSync(CLAUDE_SETTINGS, JSON.stringify(applyDisable(settings), null, 2));
   return true;
 }
 
@@ -357,17 +343,25 @@ function editConfig(env) {
       output: process.stdout,
     });
 
+    // Guard so Ctrl+C (SIGINT) and Enter can't both fire the callback.
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      rl.close();
+      callback(value);
+    };
+
     console.clear();
     console.log('');
     console.log(`${colors.cyan}${label}${colors.reset}`);
     console.log(`${colors.dim}Current: ${currentValue}${colors.reset}`);
-    console.log(`${colors.dim}Press Enter to keep current value${colors.reset}`);
+    console.log(`${colors.dim}Enter = keep current · Ctrl+C = cancel${colors.reset}`);
     console.log('');
 
-    rl.question(`${colors.cyan}New value: ${colors.reset}`, (answer) => {
-      rl.close();
-      callback(answer.trim() || null);
-    });
+    // Ctrl+C cancels the edit (keep current value, back to menu) instead of quitting.
+    rl.on('SIGINT', () => finish(null));
+    rl.question(`${colors.cyan}New value: ${colors.reset}`, (answer) => finish(answer.trim() || null));
   }
 
   function handleSelect() {

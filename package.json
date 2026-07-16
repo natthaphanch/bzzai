@@ -8,7 +8,9 @@
     "bzzai-helper": "./bin/bzzai"
   },
   "scripts": {
-    "postinstall": "chmod +x bin/*"
+    "postinstall": "chmod +x bin/*",
+    "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=lib/settings.js --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100"
   },
   "files": [
     "bin/",
