@@ -58,6 +58,20 @@ immediately — no compile or reinstall. Run `npm test` to check them.
 
 ---
 
+## Updating
+
+Get the newest published version:
+
+```bash
+# npx — npx caches, so pin @latest to force the newest
+npx bzzai-helper@latest
+
+# Manual install / source toggle.sh — just pull, no build or npm install needed
+cd ~/bzzai && git pull
+```
+
+---
+
 ## API Key Configuration
 
 Create `~/.zai/env.sh` (auto-created on first run):
