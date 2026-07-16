@@ -4,6 +4,15 @@ Switch between **Zai API** and **Anthropic Default** in Claude Code with TUI Men
 
 ---
 
+## Requirements
+
+- **Node.js ≥ 14** — required for every entry point: `npx bzzai-helper`, the
+  `bzzai` command, and `source toggle.sh`. They all share one Node implementation
+  (`lib/settings.js`), so the shell wrappers call `node index.js` under the hood.
+- `jq` is no longer required.
+
+---
+
 ## Quick Start (npx)
 
 No installation required - run directly:
@@ -42,6 +51,11 @@ bzzai status
 bzzai menu
 ```
 
+**No build step — edits are live.** This is plain Node.js. After editing
+`index.js`, `lib/settings.js`, or the shell wrappers in your cloned copy, the next
+`bzzai …` (or `zai-on` / `zai-off` if you `source toggle.sh`) runs your changes
+immediately — no compile or reinstall. Run `npm test` to check them.
+
 ---
 
 ## API Key Configuration
@@ -57,8 +71,20 @@ nano ~/.zai/env.sh
 ZAI_AUTH_TOKEN="your-api-key-here"
 ZAI_BASE_URL="https://api.z.ai/api/anthropic"
 ZAI_TIMEOUT_MS="3000000"
+
+# Model mapping: which GLM model backs each Anthropic slot
+ZAI_HAIKU_MODEL="glm-4.5-air"
+ZAI_SONNET_MODEL="glm-5.2[1m]"
+ZAI_OPUS_MODEL="glm-5.2[1m]"
+
 ZAI_DEBUG="0"
 ```
+
+The `[1m]` suffix selects GLM-5.2's full **1M-token context**. When any model uses
+it, enabling Zai also sets `CLAUDE_CODE_AUTO_COMPACT_WINDOW=1000000` in
+`settings.json` (and removes it again on `off` or when you drop the suffix). Use
+plain `glm-5.2` for the standard context. All three model vars are optional — the
+values above are the defaults.
 
 ---
 

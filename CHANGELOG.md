@@ -1,5 +1,43 @@
 # Zai Toggle Script - ChangeLog
 
+## 2026-07-16 - GLM-5.2[1m] models + unified Node implementation
+
+### Changed
+
+- **Default models** are now `glm-5.2[1m]` for Sonnet/Opus (Haiku stays
+  `glm-4.5-air`). When any configured model carries the `[1m]` suffix, enabling
+  Zai sets `CLAUDE_CODE_AUTO_COMPACT_WINDOW=1000000` in `settings.json` so Claude
+  Code uses GLM's full 1M-token context. The key is removed again when you
+  downgrade to a non-`[1m]` model or run `zai-off`.
+- **Single source of truth.** The settings.json logic (enable / disable / status /
+  1M-window) previously existed in four copies — `toggle.sh`, `lib/toggle.sh`,
+  `menu.sh` (bash/jq) and `index.js` (Node). It now lives once in
+  `lib/settings.js`, consumed by `index.js`. The shell scripts are thin wrappers
+  that call `node index.js on|off|status`, and `toggle.sh` just sources
+  `lib/toggle.sh`. (net −225 / +56 lines)
+
+### Fixed
+
+- `[1m]` detection is now case-insensitive — `glm-5.2[1M]` triggers the 1M window
+  too.
+- `zai-status` no longer reports ENABLED after `zai-off`. The old bash check
+  (`jq -e .env.ANTHROPIC_AUTH_TOKEN`) treated an empty-string token as truthy;
+  status now flows through `readStatus`, which reads a blank token as DISABLED.
+
+### Tests
+
+- Added `test/settings.test.js` (unit) and `test/cli.test.js` (end-to-end CLI).
+  `npm test` runs both; `npm run test:coverage` enforces 100% line / branch /
+  function coverage on `lib/settings.js`.
+
+### Note
+
+- The shell entry point (`source toggle.sh`) now requires **Node.js** (≥ 14), like
+  the `npx` and `bzzai` paths — the jq-only shell implementation was replaced by
+  the single Node implementation.
+
+---
+
 ## 2025-01-12 - Initial Setup
 
 ### What was done
@@ -31,6 +69,6 @@
 ## Security Note
 
 **IMPORTANT:** Old API key was exposed during setup. Please:
-1. Revoke the old key: `466d4bdb57a34347b71dee82a9926dec.qZFykNNRTNTddU8q`
+1. Revoke the old key: `<redacted — revoked>`
 2. Generate a new key from Zai dashboard
 3. Update `ZAI_AUTH_TOKEN` in `env.sh`
